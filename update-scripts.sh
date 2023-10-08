@@ -36,6 +36,17 @@ system_updates() {
     elif [[ -x "$(command -v apt)" ]]; then
         package_manager="apt"
         echo "apt package manager found. Continuing..."
+        # Prompt to update firmware
+        read -p "Update firmware too? [y/n] " firmware_update
+        if [[ $firmware_update = "y" ]]; then
+          echo "Updating firmware..."
+          sudo service fwupd start &> "$log_file"
+          echo "Firmware service started"
+          sudo fwupdmgr refresh &> "$log_file" 
+          echo "Refreshed firmware metadata"
+          sudo fwupdmgr update | tee -a "$log_file"
+          echo "Updating firmware packages"
+        fi
         sudo apt update -y > "$log_file" 2>&1
         sudo apt upgrade -y > "$log_file" 2>&1
     elif [[ -x "$(command -v pacman)" ]]; then
@@ -80,6 +91,13 @@ system_clean() {
     elif [[ -x "$(command -v apt)" ]]; then
         package_manager="apt"
         echo "apt package manager found. Continuing..."
+        echo "Cleaning logs..."
+        sudo logrotate > "$log_file" 2>&1
+        sudo journalctl --vacuum-size=1M > "$log_file" 2>&1
+        echo "Cleaning temporary files..."
+        sudo find /tmp -type f -mtime +1 -delete > "$log_file" 2>&1
+        sudo rm -rf /var/tmp/* > "$log_file" 2>&1
+        echo "Cleaning packages..."
         sudo apt autoremove -y > "$log_file" 2>&1
         sudo apt clean -y > "$log_file" 2>&1
     elif [[ -x "$(command -v pacman)" ]]; then
@@ -134,6 +152,7 @@ while true; do
                 break
                 ;;
             "Quit")
+		        clear_terminal
                 exit
                 ;;
             *) echo "Invalid option. Please try again.";;
